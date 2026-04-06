@@ -1,4 +1,4 @@
-SELECT top 100 T0."DocEntry" as "N° Interno SAP", T0."U_ESY_PROVEEDOR" as "Proveedor",
+SELECT T0."DocEntry" as "N° Interno SAP", T0."U_ESY_PROVEEDOR" as "Proveedor",
 T0."U_ESY_DESCPROVE" as "Nombre Proveedor", T0."U_ESY_TDOCUMENTO" as "Tipo Documento",
 T0."U_ESY_ARTICULO_P" as "Artículo SAP", T0."U_ESY_DESCARTI" as "Descripción Artículo SAP",
 T0."U_ESY_CUENTAC" as "Cuenta de Servicios", T0."U_ESY_RETEIVA" as "Retención Iva",
