@@ -19,3 +19,8 @@ GROUP BY
 ORDER BY 
     T0."AcctCode",
     T1."ProfitCode"
+
+
+
+VALIDAR CON HENRY
+SELECT T0."AcctCode",T0."AcctName",  T0."Dim1Relvnt" AS "PorLineaDeNegocio", T0."Dim2Relvnt" AS "Cliente", T0."Dim3Relvnt" AS "Area", T0."Dim4Relvnt" AS "CentroCost", T0."CurrTotal" FROM OACT T0
