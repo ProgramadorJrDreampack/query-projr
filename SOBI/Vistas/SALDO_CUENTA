@@ -1,0 +1,176 @@
+ALTER VIEW "SOBI_ECUADOR_PROD"."SOBI_SALDO_CUENTA" ( "codigoSn",
+	 "identificacion",
+	 "nombreRazonSocial",
+	 "direccion",
+	 "telefono",
+	 "correo",
+	 "grupo",
+	 "condicionDePago",
+	 "ejecutivoDeCuenta",
+	 "lineaDeCreditoA",
+	 "carteraB",
+	 "consignadoC",
+	 "lineaCreDisponibleABC",
+	 "origen",
+	 "numeroDeFactura",
+	 "fechaDeEmision",
+	 "fechaDeVencimiento",
+	 "diasDeCredito",
+	 "cantidadDeDiasPendientes",
+	 "valor",
+	 "saldo",
+	 "saldoVencido",
+	 "saldoPorVencer",
+	 "esCobranza",
+	 "copia",
+	 "CorreoInternoTesoreria",
+	 "TelefonoInternoTesoreria",
+	 "estadoVencimiento",
+	 "DireccionEmpresa",
+	 "CiudadEmpresa",
+	 "Tipo1",
+	 "RutaImg1",
+	 "Tipo2",
+	 "RutaImg2",
+	 "Tipo3",
+	 "RutaImg3" ) AS SELECT
+	 T1."CardCode" AS "codigoSn",
+	 T1."LicTradNum" AS "identificacion",
+	 T1."CardName" AS "nombreRazonSocial",
+	 T1."Address" AS "direccion",
+	 T1."Phone1" AS "telefono",
+	 REPLACE(REPLACE(COALESCE(T7."CorreoCobranza",
+	 T1."E_Mail"),
+	 ',',
+	 ';'),
+	 ' ',
+	 '') AS "correo",
+	 T4."GroupName" AS "grupo",
+	 T5."PymntGroup" AS "condicionDePago",
+	 T3."SlpName" AS "ejecutivoDeCuenta",
+	 T1."CreditLine" AS "lineaDeCreditoA",
+	 T1."Balance" AS "carteraB",
+	 T1."OrdersBal" AS "consignadoC",
+	 (T1."CreditLine" - T1."Balance" - T1."OrdersBal") AS "lineaCreDisponibleABC",
+	 CASE WHEN T0."TransType" = '13' 
+THEN 'FAC' WHEN T0."TransType" = '14' 
+THEN 'NC' WHEN T0."TransType" = '24' 
+THEN 'PR' 
+ELSE T0."TransType" 
+END AS "origen",
+	 CASE WHEN T0."TransType" = '14' 
+THEN 'Nota de crédito' WHEN T0."TransType" = '24' 
+THEN 'Pago recibido' 
+ELSE T0."Ref2" 
+END AS "numeroDeFactura",
+	 T0."RefDate" AS "fechaDeEmision",
+	 T0."DueDate" AS "fechaDeVencimiento",
+	 DAYS_BETWEEN(TO_DATE(T0."RefDate"),
+	 TO_DATE(T0."DueDate")) AS "diasDeCredito",
+	 DAYS_BETWEEN(TO_DATE(T0."DueDate"),
+	 TO_DATE(CURRENT_DATE)) AS "cantidadDeDiasPendientes",
+	 (T0."Debit" - T0."Credit") AS "valor",
+	 (T0."BalDueDeb" - T0."BalDueCred") AS "saldo",
+	 SUM( CASE WHEN DAYS_BETWEEN(TO_DATE(T0."DueDate"),
+	 TO_DATE(CURRENT_DATE)) > 0 
+	THEN (T0."BalDueDeb" - T0."BalDueCred") 
+	ELSE 0 
+	END ) OVER (PARTITION BY T1."CardCode") AS "saldoVencido",
+	 SUM( CASE WHEN DAYS_BETWEEN(TO_DATE(T0."DueDate"),
+	 TO_DATE(CURRENT_DATE)) <= 0 
+	THEN (T0."BalDueDeb" - T0."BalDueCred") 
+	ELSE 0 
+	END ) OVER (PARTITION BY T1."CardCode") AS "saldoPorVencer",
+	 CASE WHEN T7."CorreoCobranza" IS NOT NULL 
+THEN 'Si' 
+ELSE 'No' 
+END AS "esCobranza",
+	 T3."Email" AS "copia",
+	 T8."U_SOBI_CORREO_TES" AS "CorreoInternoTesoreria",
+	T10."PortNum" AS "TelefonoInternoTesoreria",
+	 CASE WHEN DAYS_BETWEEN(TO_DATE(T0."DueDate"),
+	 TO_DATE(CURRENT_DATE)) > 0 
+THEN 'Vencido' WHEN DAYS_BETWEEN(TO_DATE(T0."DueDate"),
+	 TO_DATE(CURRENT_DATE)) <= 0 
+THEN 'Por Vencer' 
+ELSE '' 
+END AS "estadoVencimiento",
+	 UPPER(T9."Street") AS "DireccionEmpresa",
+	 UPPER(T9."City") AS "CiudadEmpresa",
+	 ( SELECT
+	 MAX(CASE WHEN "LineId" = 1 
+		AND A0."U_SOBI_TIPO" = 3 
+		THEN 'logo' 
+		END) 
+	FROM "SOBI_ECUADOR_PROD"."@SOBI_IMG_DETALLE" A0 
+	WHERE T8."Code" = A0."Code" 
+	GROUP BY "Code" ) AS "Tipo1",
+	 ( SELECT
+	 MAX(CASE WHEN "LineId" = 1 
+		THEN A0."U_SOBI_RUTA" 
+		END) 
+	FROM "SOBI_ECUADOR_PROD"."@SOBI_IMG_DETALLE" A0 
+	WHERE T8."Code" = A0."Code" 
+	GROUP BY "Code" ) AS "RutaImg1",
+( SELECT MAX(CASE WHEN A0."LineId" = 3 AND A0."U_SOBI_TIPO" = 2 THEN 'f_cta_bancaria'
+                  WHEN A0."LineId" = 4 AND A0."U_SOBI_TIPO" = 4 THEN 'f_cta_bancaria_exterior'
+             END)
+  FROM "SOBI_ECUADOR_PROD"."@SOBI_IMG_DETALLE" A0
+  WHERE A0."Code" = T8."Code"
+  AND (
+      (T1."GroupCode" = 100 AND A0."LineId" = 3)
+      OR
+      (T1."GroupCode" != 100 AND A0."LineId" = 4)
+  )
+  GROUP BY "Code" ) AS "Tipo2",
+
+( SELECT MAX(A0."U_SOBI_RUTA")
+  FROM "SOBI_ECUADOR_PROD"."@SOBI_IMG_DETALLE" A0
+  WHERE A0."Code" = T8."Code"
+  AND (
+      (T1."GroupCode" = 100 AND A0."LineId" = 3)
+      OR
+      (T1."GroupCode" != 100 AND A0."LineId" = 4)
+  )
+  GROUP BY "Code" ) AS "RutaImg2",
+	 ( SELECT
+	 MAX(CASE WHEN "LineId" = 3 
+		AND A0."U_SOBI_TIPO" = 1 
+		THEN 'f_correo' 
+		END) 
+	FROM "SOBI_ECUADOR_PROD"."@SOBI_IMG_DETALLE" A0 
+	WHERE T8."Code" = A0."Code" 
+	GROUP BY "Code" ) AS "Tipo3",
+	 ( SELECT
+	 MAX(CASE WHEN "LineId" = 3 
+		THEN A0."U_SOBI_RUTA" 
+		END) 
+	FROM "SOBI_ECUADOR_PROD"."@SOBI_IMG_DETALLE" A0 
+	WHERE T8."Code" = A0."Code" 
+	GROUP BY "Code" ) AS "RutaImg3",
+	T1."GroupCode"
+FROM JDT1 AS T0 
+INNER JOIN OCRD T1 ON T0."ShortName" = T1."CardCode" 
+LEFT JOIN OSLP T3 ON T1."SlpCode" = T3."SlpCode" 
+LEFT JOIN OCRG T4 ON T1."GroupCode" = T4."GroupCode" 
+LEFT JOIN OCTG T5 ON T1."GroupNum" = T5."GroupNum" 
+LEFT JOIN ( SELECT
+	 "CardCode",
+	 "E_MailL" AS "CorreoCobranza" 
+	FROM ( SELECT
+	 "CardCode",
+	 "E_MailL",
+	 ROW_NUMBER() OVER (PARTITION BY "CardCode" 
+			ORDER BY "Name") AS rn 
+		FROM OCPR 
+		WHERE "Name" IN ('COBRANZA',
+	 'COBRANZAS') ) T 
+	WHERE rn = 1 ) T7 ON T1."CardCode" = T7."CardCode" 
+INNER JOIN "SOBI_ECUADOR_PROD"."@SOBI_IMG_BASE" T8 ON T8."U_SOBI_MODULO" = 'ESTADOS_CUENTAS'
+LEFT JOIN OUSR T10 ON T10."INTERNAL_K" = T8."UserSign",
+	 ADM1 T9 
+WHERE T0."TransType" IN ('13',
+	 '14',
+	 '24') 
+AND (T0."BalDueDeb" - T0."BalDueCred") <> 0 
+AND T1."CardType" = 'C' WITH READ ONLY

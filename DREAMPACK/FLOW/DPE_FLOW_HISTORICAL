@@ -1,0 +1,73 @@
+SELECT DISTINCT
+    T0."DocNum"                      AS "CodOrden",
+    T0."CardCode"                    AS "CodProveedor",
+    T0."CardName"                    AS "NombreProveedor",
+    T0."DocDate"                     AS "FechaOrden",
+    T0."DocDueDate"                  AS "FechaEntrega",
+    TFecha."FechaContabilizacion"    AS "FechaContabilizacion",  -- ► MAX fecha entrada
+    T1."ItemCode"                    AS "CodArticulo",
+    T1."WhsCode"                     AS "CodigoBodega",
+    T3."U_SYP_TIPOWSH"              AS "CodigoBaseBodega",
+    
+    CASE 
+        WHEN T1."UomCode" = 'TONELADA' THEN T1."Quantity" * 1000
+        ELSE T1."Quantity"
+    END AS "Cantidad",
+
+    CASE 
+        WHEN T1."UomCode" = 'TONELADA' 
+            THEN (T1."Quantity" - (COALESCE(T1."OpenCreQty", 0) + COALESCE(F1."OpenCreQty", 0))) * 1000
+        ELSE (T1."Quantity" - (COALESCE(T1."OpenCreQty", 0) + COALESCE(F1."OpenCreQty", 0)))
+    END AS "CantEntregada",
+
+    CASE 
+        WHEN T1."UomCode" = 'TONELADA' 
+            THEN (COALESCE(T1."OpenCreQty", 0) + COALESCE(F1."OpenCreQty", 0)) * 1000
+        ELSE (COALESCE(T1."OpenCreQty", 0) + COALESCE(F1."OpenCreQty", 0))
+    END AS "CantPendiente",
+    
+    CASE 
+        WHEN T0."DocStatus" = 'O' THEN 'Abierta' 
+        WHEN T0."DocStatus" = 'C' THEN 'Cerrada'
+        ELSE '' 
+    END AS "Estado",
+    CASE 
+        WHEN T0."U_SYP_TIPCOMPRA" = '02' THEN 'Importada' 
+        ELSE '' 
+    END AS "TipoOrden",
+    T1."OpenCreQty",
+    F1."OpenCreQty"
+    
+FROM OPOR T0  
+INNER JOIN POR1 T1  ON T0."DocEntry"  = T1."DocEntry" 
+LEFT JOIN  OWHS T3  ON T1."WhsCode"   = T3."WhsCode"
+-- ► Factura Reserva Acreedor
+LEFT JOIN  PCH1 F1  ON F1."BaseEntry" = T1."DocEntry"
+                   AND F1."BaseType"  = 22
+                   AND T1."LineNum"   = F1."BaseLine"
+LEFT JOIN  OPCH F2  ON F1."DocEntry"  = F2."DocEntry"
+-- ► Subconsulta: MAX fecha de entrada de mercancía no cancelada
+LEFT JOIN (
+    SELECT 
+        F1."DocEntry"         AS "DocEntryFactura",
+        F1."LineNum"          AS "LineNumFactura",
+        MAX(D0."DocDate")     AS "FechaContabilizacion"
+    FROM PCH1 F1
+    LEFT JOIN PDN1 D1 ON D1."BaseEntry" = F1."DocEntry"
+                     AND D1."BaseType"  = 18
+                     AND D1."BaseLine"  = F1."LineNum"
+    LEFT JOIN OPDN D0 ON D1."DocEntry"  = D0."DocEntry"
+                     AND D0."CANCELED"  = 'N'
+    
+    WHERE F1."BaseType" = 22
+    GROUP BY F1."DocEntry", F1."LineNum"
+) TFecha
+    ON TFecha."DocEntryFactura" = F1."DocEntry"
+   AND TFecha."LineNumFactura"  = F1."LineNum"
+WHERE 
+    T0."U_SYP_TIPCOMPRA" = '02'
+    AND T0."CANCELED"    = 'N'
+    AND T0."DocStatus"   = 'C'
+    AND (IFNULL(T1."OpenCreQty", 0) + IFNULL(F1."OpenCreQty", 0)) > 0
+    AND T0."DocDate"     >= ADD_MONTHS(CURRENT_DATE, -6)
+    AND T0."DocNum"  = '25002646'
